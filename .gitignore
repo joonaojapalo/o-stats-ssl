@@ -1,0 +1,5 @@
+*.pyc
+*.db3
+competition_html/*.html
+competition_html/done.txt
+cal.html
