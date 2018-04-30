@@ -1,16 +1,23 @@
 import os
+import sys
 import db
+import glob
 
 from bs4 import BeautifulSoup
 
+from fsutils import  FileRepository
+import config
 
-debug = False
+
+debug = True
 
 
 def parse_comp_name(d):
 	h = d.select("div.v-public-page-heading")
 	if len(h):
 		return h[0].text
+	else:
+		return "unknown"
 
 
 def parse_competition(html_str, fname=""):
@@ -23,8 +30,9 @@ def parse_competition(html_str, fname=""):
 
 	# create competition dict
 	comp = {"id": cid, "name": parse_comp_name(d), "results": {}}
+	
 	if debug:
-		print " * competition name: %s" % comp["name"]
+		print " * competition name: %s" % (comp["name"].encode('utf8'))
 
 	# for each class result table
 	it1 = d.find_all("table")[1].find_all("table")[2:-1:2]
@@ -100,17 +108,39 @@ def persist_competition(conn, competition):
 	conn.commit()
 
 
-# database connection
-conn = db.connect(db.conf)
+def get_competition_html_paths(comp_dir):
+	return glob.glob(os.path.join(comp_dir, "*.html"))
 
-# read directory listing
-comp_dir = "competition_html"
-fs = os.listdir(comp_dir)
 
-# parse each file
-for i, fn in enumerate(fs):
-	fn = os.path.join(comp_dir, fn)
-	competition = parse_competition(open(fn).read(), fn)
-	persist_competition(conn, competition)
-	print " * competition read: %d/%d" % (i+1, len(fs))
+if __name__ == "__main__":
+
+		# parse args
+	if len(sys.argv) < 2:
+		print "Missing year."
+		sys.exit(1)
+
+	year = int(sys.argv[1])
+
+	fsrepo = FileRepository(config.conf["rootpath"], year)
+	fsrepo.ensure_directory_layout()
+
+	# database connection
+	conn = db.create_sqlite_by_filename(fsrepo.get_competition_db_path())
+
+	# read directory listing
+	comp_dir = "competition_html"
+	fs = fsrepo.get_html_paths()
+
+	if debug:
+		print " * start parsing %i htmls" % (len(fs))
+
+	# parse each file
+	for i, fn in enumerate(fs):
+
+		if debug:
+			print " * parsing: %s" % (fn)
+
+		competition = parse_competition(open(fn).read(), fn)
+		persist_competition(conn, competition)
+		print " * competition read: %d/%d" % (i+1, len(fs))
 

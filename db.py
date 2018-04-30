@@ -1,19 +1,24 @@
 import sqlite3
 
 
-conf = {
-	"sqlite": "competitions-2016.db3"
-}
+def build_conf():
+	return {
+		"type": "sqlite",
+		"connection": ""
+	}
 
 
 def create_schema(conn):
-	schema = open("schema.sql").read()
+	schema = open("persistence/schema.sql").read()
 	for ddl_statement in schema.split(";"):
 		conn.execute(ddl_statement) 
 
 
 def connect(conf):
-	return sqlite3.connect(conf["sqlite"])
+	if conf["type"] == "sqlite":
+		return sqlite3.connect(conf["connection"])
+	else:
+		raise Exception("invalid database tyype: %s" % conf["type"])
 
 
 def write_runner(conn, runner):
@@ -52,7 +57,13 @@ def read_runner_by_name(conn, name):
 	return {"id": int(r[0]), "name": r[1], "club": r[2]}
 
 
-if __name__ == "__main__":
-	print " * creating schema"
+def create_sqlite_by_filename(fname):
+	conf = build_conf()
+	conf["connection"] = fname
 	conn = connect(conf)
+
+	print " * creating schema"
 	create_schema(conn)
+	
+	return conn
+
